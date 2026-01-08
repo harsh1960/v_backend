@@ -1,25 +1,26 @@
 FROM php:8.1-apache
 
-# Install dependencies for Firebase (gRPC and Protobuf)
-# Note: This takes a few minutes to build
-RUN apt-get update && apt-get install -y \
-    zlib1g-dev \
-    libgrpc-dev \
-    && pecl install grpc protobuf \
-    && docker-php-ext-enable grpc protobuf
+# 1. Install the Extension Installer Script
+# This tool downloads pre-compiled binaries so you don't have to compile from source
+ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 
-# Install Composer
+# 2. Install gRPC and Protobuf (Fast method)
+RUN chmod +x /usr/local/bin/install-php-extensions && \
+    install-php-extensions grpc protobuf
+
+# 3. Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy files
+# 4. Copy files
 COPY . /var/www/html
 WORKDIR /var/www/html
 
-# Install PHP libraries
-RUN composer install --no-dev --optimize-autoloader
+# 5. Install PHP libraries
+# We use --ignore-platform-reqs to prevent Composer from complaining about missing extensions during the build
+RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
-# Allow Apache to use the PORT environment variable from Render
+# 6. Configure Apache Port
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# Start Apache
+# 7. Start Apache
 CMD ["apache2-foreground"]
