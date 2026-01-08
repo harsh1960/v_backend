@@ -1,26 +1,25 @@
 FROM php:8.1-apache
 
-# 1. Install the Extension Installer Script
-# This tool downloads pre-compiled binaries so you don't have to compile from source
-ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+# 1. Use the "Pickle" installer (The fast way)
+# This downloads pre-compiled extensions instead of building them
+COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 
-# 2. Install gRPC and Protobuf (Fast method)
-RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions grpc protobuf
+# 2. Install gRPC and Protobuf instantly
+RUN install-php-extensions grpc protobuf
 
 # 3. Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# 4. Copy files
+# 4. Copy your project files
 COPY . /var/www/html
 WORKDIR /var/www/html
 
 # 5. Install PHP libraries
-# We use --ignore-platform-reqs to prevent Composer from complaining about missing extensions during the build
+# We use --ignore-platform-reqs to avoid errors during the build
 RUN composer install --no-dev --optimize-autoloader --ignore-platform-reqs
 
-# 6. Configure Apache Port
+# 6. Configure Apache to listen on Render's Port
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# 7. Start Apache
+# 7. Start the server
 CMD ["apache2-foreground"]
